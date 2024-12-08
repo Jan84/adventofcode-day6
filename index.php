@@ -52,3 +52,119 @@ while (1) {
 }
 
 echo 'Number of visited positions: ' . count($visited);
+
+// PART 2 
+$path = 'input.txt';
+$map = textToMap(file_get_contents($path));
+
+// Function to convert the input text into a 2D array
+function textToMap($text) {
+    $lines = explode("\n", trim($text));  // Split the text by lines and trim any leading/trailing whitespace
+    $map = [];
+    foreach ($lines as $line) {
+        $map[] = str_split($line);  // Split each line into an array of characters
+    }
+    return $map;
+}
+
+// Directions: Up (^), Right (>), Down (v), Left (<)
+$directions = [
+    '^' => [-1, 0],  // Move up
+    '>' => [0, 1],   // Move right
+    'v' => [1, 0],   // Move down
+    '<' => [0, -1]   // Move left
+];
+
+// Turn right mapping for each direction
+$turnRight = [
+    '^' => '>',  // Turn right from up to right
+    '>' => 'v',  // Turn right from right to down
+    'v' => '<',  // Turn right from down to left
+    '<' => '^'   // Turn right from left to up
+];
+
+// Function to find the guard's starting position
+function findGuard($map) {
+    foreach ($map as $r => $row) {
+        foreach ($row as $c => $cell) {
+            if (in_array($cell, ['^', '>', 'v', '<'])) {
+                return [$r, $c, $cell];  // Return position and direction
+            }
+        }
+    }
+    return null;
+}
+
+// Function to simulate the guard's movement and check if it gets stuck in a loop
+function simulateGuardPath($map, $directions, $turnRight) {
+    list($row, $col, $direction) = findGuard($map);
+
+    $visited = [];
+    $rows = count($map);
+    $cols = count($map[0]);
+
+    // Track the starting position
+    $visited["$row,$col,$direction"] = true;
+
+    while (true) {
+        // Calculate the next position based on current direction
+        $nextRow = $row + $directions[$direction][0];
+        $nextCol = $col + $directions[$direction][1];
+
+        // Check if the guard has gone out of bounds
+        if ($nextRow < 0 || $nextRow >= $rows || $nextCol < 0 || $nextCol >= $cols) {
+            break;  // Guard leaves the map
+        }
+
+        // If there's an obstacle, turn right
+        if ($map[$nextRow][$nextCol] === '#' || $map[$nextRow][$nextCol] === 'O') {
+            $direction = $turnRight[$direction];
+        } else {
+            // Otherwise, move forward
+            $row = $nextRow;
+            $col = $nextCol;
+        }
+
+        // Check if the current position and direction were visited before (loop)
+        if (isset($visited["$row,$col,$direction"])) {
+            return true;  // Guard is stuck in a loop
+        }
+
+        // Mark the position and direction as visited
+        $visited["$row,$col,$direction"] = true;
+    }
+
+    return false;  // No loop detected
+}
+
+// Function to find all valid positions for obstructions that cause the guard to loop
+function findValidObstructionPositions($map, $directions, $turnRight) {
+    $validPositions = [];
+    $rows = count($map);
+    $cols = count($map[0]);
+
+    // Try placing the obstruction in every empty position
+    for ($r = 0; $r < $rows; $r++) {
+        for ($c = 0; $c < $cols; $c++) {
+            if ($map[$r][$c] === '.' && !in_array($map[$r][$c], ['^', '>', 'v', '<'])) {
+                // Temporarily place the obstruction
+                $map[$r][$c] = 'O';
+
+                // Simulate the guard's movement
+                if (simulateGuardPath($map, $directions, $turnRight)) {
+                    // If the guard gets stuck in a loop, this position is valid
+                    $validPositions[] = [$r, $c];
+                }
+
+                // Remove the obstruction
+                $map[$r][$c] = '.';
+            }
+        }
+    }
+
+    return count($validPositions);  // Return the count of valid positions
+}
+
+// Run the simulation and print the result
+$validPositionsCount = findValidObstructionPositions($map, $directions, $turnRight);
+echo "<br>There are $validPositionsCount valid positions for the obstruction.\n";
